@@ -47,35 +47,58 @@ class ReadFiles:
                                                 print(e)
                                             for column_id, column_data in data[sheet]["columns"].items():
                                                 try:
-                                                    if "path" in column_data["formula"]:
-                                                        output.append({
-                                                        "workbookID":json_data["workbookId"],
-                                                        "sheetID": sheet,
-                                                        "sheetName":sheetName,
-                                                        "columnID": column_id,
-                                                        "type": column_data["type"],
-                                                        "formulaType": column_data["formula"]["type"],
-                                                        "path": column_data["formula"]["path"][0],
-                                                        "columnName": column_data["formula"]["path"][1],
-                                                        "DataType": column_data["format"]["type"] if "format" in column_data else "",
-                                                        "format": column_data["format"]["format"] if "format" in column_data else ""
-                                                        })
-                                                    elif  "op" in column_data["formula"]:
-                                                        output.append({
-                                                            "workbookID": json_data["workbookId"],
+                                                    columnName=""
+                                                    if "format" in column_data["formula"]:
+
+                                                        if "path" in column_data["formula"]:
+                                                            columnName = column_data["formula"]["path"][1]
+                                                        elif "another_key" in column_data["formula"]:
+                                                            columnName = column_data["formula"]["another_key"]
+                                                        elif "yet_another_key" in column_data["formula"]:
+                                                            columnName = column_data["formula"]["yet_another_key"]
+                                                        else:
+                                                            columnName=""
+                                                    dateType=""
+                                                    if "dateType" in column_data["formula"]:
+                                                        dateType=column_data["format"]["type"]
+
+
+
+
+                                                        try:
+                                                            output.append({
+                                                            "workbookID":json_data["workbookId"],
                                                             "sheetID": sheet,
-                                                            "sheetName": sheetName,
+                                                            "sheetName":sheetName,
                                                             "columnID": column_id,
                                                             "type": column_data["type"],
-                                                            "SourceColumns":column_data["formula"]["args"] if "args" in column_data["formula"] \
-                                                                                                                else [column_data["formula"]["x"],column_data["formula"]["y"]]
-                                                            ,
-                                                            "TargetColumnName": column_data["name"] if "name" in column_data else "",
+                                                            "formulaType": column_data["formula"]["type"],
+                                                            "path":  column_data["formula"]["path"][0] if "path" in   column_data["formula"] else "",
+                                                            "columnName": columnName,
+                                                            "DataType": dateType,
+                                                            "format": ""
+                                                            })
+                                                        except Exception as e:
+                                                            print(e)
+                                                    elif  "op" in column_data["formula"]:
+                                                        try:
+                                                            output.append({
+                                                                "workbookID": json_data["workbookId"],
+                                                                "sheetID": sheet,
+                                                                "sheetName": sheetName,
+                                                                "columnID": column_id,
+                                                                "type": column_data["type"],
+                                                                "SourceColumns":column_data["formula"]["args"] if "args" in column_data["formula"] \
+                                                                                                                    else [column_data["formula"]["x"],column_data["formula"]["y"]]
+                                                                ,
+                                                                "TargetColumnName": column_data["name"] if "name" in column_data else "",
 
-                                                            "DataType":  column_data["format"]["type"] if "format" in column_data else "" ,
-                                                            "format":    column_data["format"]["format"] if "format" in column_data else "" ,
+                                                                "DataType":  column_data["format"]["type"] if "format" in column_data else "" ,
+                                                                "format":    column_data["format"]["format"] if "format" in column_data else "" ,
 
-                                                        })
+                                                            })
+                                                        except Exception as e:
+                                                            print(e)
 
                                                 except Exception as e:
                                                     print(e)
@@ -285,8 +308,8 @@ class Program:
                    'LinkDescription',
                    'Expression'
                    ]]
-            filtered_df = df[df['ReportName'] == 'Data Source - Key Metric Visualizations']
-            print(tabulate(filtered_df, headers='keys', tablefmt='pipe'))
+            # filtered_df = df[df['ReportName'] == 'Data Source - Key Metric Visualizations']
+           # print(tabulate(filtered_df, headers='keys', tablefmt='pipe'))
 
             df=df.rename(columns={ 'ModelName':"Model Name",
                                'ReportPath':'Report Path',
@@ -363,6 +386,9 @@ class Program:
                 sheetName = row["sheetName"]
                 sheetID = row["sheetID"]
                 print(f"Start parsing query number {index}: ")
+                if index==14:
+                    print("break")
+
                 dictResult=self.GetParsedResultPerQuery(SqlText,'dbvsnowflake')
                 print(f"End parsing query")
 
@@ -502,34 +528,69 @@ class Program:
         tableColumns_df=pd.DataFrame()
         try:
             for table in [data_dict["table"]]:
-                table_id = table['@id']
-                table_name = table['@name']
-                table_schema = table['@schema']
-                table_db = table['@database']
-                table_type = table['@type']
-                table_alias = table['@alias']
-                table_coordinate= table['@coordinate']
+                if type(table)==list:
+                    for tbl in table:
+                        if not tbl['@name'].startswith("pseudo"):
 
-                table_data.append([table_id, table_name, table_schema, table_db,table_type,
-                                   table_alias,table_coordinate
-                                   ])
+                            table_id = tbl['@id']
+                            table_name = tbl['@name']
+                            table_schema = tbl['@schema']
+                            table_db = tbl['@database']
+                            table_type = tbl['@type']
+                            table_alias = tbl['@alias']
+                            table_coordinate= tbl['@coordinate']
 
-                columns = table['column']
-                for column in columns:
-                    column_id = column['@id']
-                    column_name = column['@name']
-                    column_coordinate = column['@coordinate']
-                    column_data.append(
-                        [table_id, table_name, table_schema, table_db,table_type,
-                         table_alias, table_coordinate,
-                         column_id, column_name, column_coordinate])
-                    column_df = pd.DataFrame(column_data,
-                                             columns=['TableID', 'TableName', 'TableSchema', 'TableDB',
-                                                      'TableType','TableAlias','TableCoordinate',
-                                                      'ColumnID',
-                                                      'ColumnName', 'ColumnCoordinate'])
-                    column_data=[]
-                    listOfdfColumns.append(column_df)
+                            table_data.append([table_id, table_name, table_schema, table_db,table_type,
+                                               table_alias,table_coordinate
+                                               ])
+
+                            columns = tbl['column']
+                            for column in columns:
+                                column_id = column['@id']
+                                column_name = column['@name']
+                                column_coordinate = column['@coordinate']
+                                column_data.append(
+                                    [table_id, table_name, table_schema, table_db,table_type,
+                                     table_alias, table_coordinate,
+                                     column_id, column_name, column_coordinate])
+                                column_df = pd.DataFrame(column_data,
+                                                         columns=['TableID', 'TableName', 'TableSchema', 'TableDB',
+                                                                  'TableType','TableAlias','TableCoordinate',
+                                                                  'ColumnID',
+                                                                  'ColumnName', 'ColumnCoordinate'])
+                                column_data=[]
+                                listOfdfColumns.append(column_df)
+                else:
+                    if not table['@name'].startswith("pseudo"):
+
+                        table_id = table['@id']
+                        table_name = table['@name']
+                        table_schema = table['@schema']
+                        table_db = table['@database']
+                        table_type = table['@type']
+                        table_alias = table['@alias']
+                        table_coordinate = table['@coordinate']
+
+                        table_data.append([table_id, table_name, table_schema, table_db, table_type,
+                                           table_alias, table_coordinate
+                                           ])
+
+                        columns = table['column']
+                        for column in columns:
+                            column_id = column['@id']
+                            column_name = column['@name']
+                            column_coordinate = column['@coordinate']
+                            column_data.append(
+                                [table_id, table_name, table_schema, table_db, table_type,
+                                 table_alias, table_coordinate,
+                                 column_id, column_name, column_coordinate])
+                            column_df = pd.DataFrame(column_data,
+                                                     columns=['TableID', 'TableName', 'TableSchema', 'TableDB',
+                                                              'TableType', 'TableAlias', 'TableCoordinate',
+                                                              'ColumnID',
+                                                              'ColumnName', 'ColumnCoordinate'])
+                            column_data = []
+                            listOfdfColumns.append(column_df)
 
             tableColumns_df = pd.concat(listOfdfColumns)
             return tableColumns_df
@@ -697,7 +758,8 @@ class Program:
 
     def JoinWorkbookName(self,dfWb,dfMain):
         try:
-         merged_df = dfMain.merge(dfWb, left_on='workbookId', right_on='workbookID')[['workbookId','name','path','sheetID','sheetName']]
+         if  len(dfWb)>0 and len(dfMain)>0:
+            merged_df = dfMain.merge(dfWb, left_on='workbookId', right_on='workbookID')[['workbookId','name','path','sheetID','sheetName']]
 
          return  merged_df
         except Exception as e:
@@ -706,17 +768,19 @@ class Program:
     def JoinSheetIdAndElementID(self,dfSheet,dfElement):
         try:
 
+            if len(dfSheet)>0 and len(dfElement)>0:
+
+                merged_df = dfSheet.merge(dfElement, left_on=['sheetID','workbookId'], right_on=['sheetId','workbookId'])[
+                    ['workbookId', 'name', 'path', 'sheetID', 'sheetName',"id"]]
+
+                merged_df = merged_df.rename(columns={'name': 'WorkBookName',"id":"elementID",
+                                                      'path':"WorkBookPath"
+                                                      })
 
 
-            merged_df = dfSheet.merge(dfElement, left_on=['sheetID','workbookId'], right_on=['sheetId','workbookId'])[
-                ['workbookId', 'name', 'path', 'sheetID', 'sheetName',"id"]]
-
-            merged_df = merged_df.rename(columns={'name': 'WorkBookName',"id":"elementID",
-                                                  'path':"WorkBookPath"
-                                                  })
-
-
-            return merged_df
+                return merged_df
+            else:
+                return None
 
 
         except Exception as e:
@@ -724,13 +788,13 @@ class Program:
 
     def JoinElemetsAndSQL(self, dfElement, dfQueries):
         try:
-
-            merged_df = dfElement.merge(dfQueries, left_on=['elementID'], right_on=['elementId' ])[
-                ['workbookId', 'WorkBookName', 'WorkBookPath', 'sheetID', 'sheetName', "elementID","sql"]]
-            return merged_df
+            if len(dfElement)>0 and len(dfQueries)>0:
+                merged_df = dfElement.merge(dfQueries, left_on=['elementID'], right_on=['elementId' ])[
+                    ['workbookId', 'WorkBookName', 'WorkBookPath', 'sheetID', 'sheetName', "elementID","sql"]]
+                return merged_df
         except Exception as e:
             print(e)
 
 
 pg=Program()
-pg.GetDataFrames("E:\\temp\\Sigma_18-05-2023-18-19-49")
+pg.GetDataFrames("E:\\temp\\Sigma_22-06-2023-16-29-34")
